@@ -1,0 +1,52 @@
+version: "3.9"
+
+services:
+
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
+    volumes:
+      - ./grafana/provisioning:/usr/share/grafana/conf/provisioning
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      
+      - grafana-storage:/var/lib/grafana
+  
+  
+  
+  
+  
+  cassandra:
+    build: ./cassandra
+    container_name: cassandra
+    ports:
+      - "9042:9042"
+      - "7071:7071"   # CQL port
+    environment:
+      - CASSANDRA_CLUSTER_NAME=TestCluster
+      - CASSANDRA_DC=dc1
+      - CASSANDRA_RACK=rack1
+      - CASSANDRA_ENDPOINT_SNITCH=GossipingPropertyFileSnitch
+    volumes:
+      - cassandra_data:/var/lib/cassandra
+
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yaml'
+    ports:
+      - '9090:9090'
+    restart: 'unless-stopped'
+    volumes:
+      - ./prometheus:/etc/prometheus
+      - prom_data:/prometheus
+
+
+volumes:
+  grafana-storage: {}
+  prom_data:
+  cassandra_data:
+

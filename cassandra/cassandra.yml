@@ -1,0 +1,260 @@
+lowercaseOutputName: true
+lowercaseOutputLabelNames: true
+
+whitelistObjectNames:
+  # Cassandra Core
+  - org.apache.cassandra.metrics:type=Client,name=*
+ 
+  - org.apache.cassandra.metrics:type=ClientRequest,*
+  - org.apache.cassandra.metrics:type=Cache,*
+  - org.apache.cassandra.metrics:type=Compaction,*
+  - org.apache.cassandra.metrics:type=Storage,*
+  - org.apache.cassandra.metrics:type=Table,*
+  - org.apache.cassandra.metrics:type=ThreadPools,*
+  - org.apache.cassandra.metrics:type=Network,*
+
+  
+  # - org.apache.cassandra.metrics:type=Client,*
+  # - org.apache.cassandra.metrics:type=Messaging,*
+  # - org.apache.cassandra.metrics:type=HintedHandOff,*
+
+  # JVM
+  - java.lang:type=Memory
+  - java.lang:type=GarbageCollector,name=G1*
+  - java.lang:type=OperatingSystem
+  - java.nio:type=BufferPool,name=direct
+
+rules:
+  - pattern: org.apache.cassandra.metrics<type=(\S*)(?:, ((?!scope)\S*)=(\S*))?(?:, scope=(\S*))?, name=(\S*)><>Value
+    name: cassandra_$1_$5
+    type: GAUGE
+    labels:
+      "$1": "$4"
+      "$2": "$3"
+
+  # === CLIENT REQUEST METRICS ===
+
+  - pattern: 'org.apache.cassandra.metrics<type=ClientRequest, scope=(Read|Write), name=OneMinuteRate><>Value'
+    name: cassandra_requests_$1_per_second
+    type: GAUGE
+
+  
+  - pattern: org.apache.cassandra.metrics<type=(\S*)(?:, ((?!scope)\S*)=(\S*))?(?:, scope=(\S*))?, name=(.+)?(?:Total)(Latency)><>Count
+    name: cassandra_$1_$5$6_seconds_sum
+    type: UNTYPED
+    labels:
+      "$1": "$4"
+      "$2": "$3"
+    # Convert microseconds to ms
+    valueFactor: 0.001
+
+  - pattern: org.apache.cassandra.metrics<type=(\S*)(?:, ((?!scope)\S*)=(\S*))?(?:, scope=(\S*))?, name=((?:.+)?(?:Latency))><>Count
+    name: cassandra_$1_$5_seconds_count
+    type: UNTYPED
+    labels:
+      "$1": "$4"
+      "$2": "$3"
+
+  - pattern: org.apache.cassandra.metrics<type=(\S*)(?:, ((?!scope)\S*)=(\S*))?(?:, scope=(\S*))?, name=(.+)><>Count
+    name: cassandra_$1_$5_count
+    type: UNTYPED
+    labels:
+      "$1": "$4"
+      "$2": "$3"
+
+  - pattern: org.apache.cassandra.metrics<type=(\S*)(?:, ((?!scope)\S*)=(\S*))?(?:, scope=(\S*))?, name=((?:.+)?(?:Latency))><>(\d+)thPercentile
+    name: cassandra_$1_$5_seconds
+    type: GAUGE
+    labels:
+      "$1": "$4"
+      "$2": "$3"
+      quantile: "0.$6"
+    # Convert microseconds to ms
+    valueFactor: 0.001
+
+  - pattern: org.apache.cassandra.metrics<type=(\S*)(?:, ((?!scope)\S*)=(\S*))?(?:, scope=(\S*))?, name=(.+)><>(\d+)thPercentile
+    name: cassandra_$1_$5
+    type: GAUGE
+    labels:
+      "$1": "$4"
+      "$2": "$3"
+      quantile: "0.$6"
+
+  # SSTable Count
+  - pattern: 'org.apache.cassandra.metrics<type=Table, keyspace=([^,]+), scope=([^,]+), name=SSTableCount><>Value'
+    name: cassandra_table_sstable_count
+    labels:
+      keyspace: "$1"
+      table: "$2"
+    type: GAUGE
+
+  # SSTables per Read (99th %ile)
+  - pattern: 'org.apache.cassandra.metrics<type=Table, keyspace=([^,]+), scope=([^,]+), name=SSTablesPerReadHistogram><>99thPercentile'
+    name: cassandra_table_sstables_per_read_p99
+    labels:
+      keyspace: "$1"
+      table: "$2"
+    type: GAUGE
+
+  # Partition Size
+  - pattern: 'org.apache.cassandra.metrics<type=Table, keyspace=([^,]+), scope=([^,]+), name=MaxPartitionSize><>Value'
+    name: cassandra_table_max_partition_size_bytes
+    labels:
+      keyspace: "$3"
+      table: "$4"
+    type: GAUGE
+  - pattern: 'org.apache.cassandra.metrics<type=Table, keyspace=([^,]+), scope=([^,]+), name=MeanPartitionSize><>Value'
+    name: cassandra_table_mean_partition_size_bytes
+    labels:
+      keyspace: "$3"
+      table: "$4"
+    type: GAUGE
+
+  # === CACHE METRICS ===
+  - pattern: 'org.apache.cassandra.metrics<type=Cache, scope=(KeyCache|RowCache), name=(Hits|Requests)><>Count'
+    name: cassandra_cache_$1_$2_total
+    type: COUNTER
+
+
+  # === JVM MEMORY ===
+  - pattern: 'java.lang<type=Memory><HeapMemoryUsage>used'
+    name: jvm_memory_heap_used_bytes
+    type: GAUGE
+
+  - pattern: 'java.lang<type=Memory><NonHeapMemoryUsage>used'
+    name: jvm_memory_nonheap_used_bytes
+    type: GAUGE
+
+  # === JVM GC ===
+  - pattern: 'java.lang<type=GarbageCollector, name=(G1 Young Generation|G1 Old Generation)><>CollectionCount'
+    name: jvm_gc_collections_total
+    labels:
+      gc_type: "$1"
+    type: COUNTER
+
+  - pattern: 'java.lang<type=GarbageCollector, name=(G1 Young Generation|G1 Old Generation)><>CollectionTime'
+    name: jvm_gc_collection_time_ms
+    labels:
+      gc_type: "$1"
+    type: COUNTER
+
+  # === JVM SYSTEM ===
+  - pattern: 'java.lang<type=OperatingSystem><>SystemLoadAverage'
+    name: jvm_system_load_average
+    type: GAUGE
+
+  # === TABLE METRICS ===
+  - pattern: 'org.apache.cassandra.metrics<type=Table, keyspace=([^,]+), scope=([^,]+), name=SSTableCount><>Value'
+    name: cassandra_table_sstable_count
+    labels:
+      keyspace: "$1"
+      table: "$2"
+    type: GAUGE
+
+  - pattern: 'org.apache.cassandra.metrics<type=Table, keyspace=([^,]+), scope=([^,]+), name=MaxPartitionSize><>Value'
+    name: cassandra_table_max_partition_size_bytes
+    labels:
+      keyspace: "$1"
+      table: "$2"
+    type: GAUGE
+
+  - pattern: 'org.apache.cassandra.metrics<type=Table, keyspace=([^,]+), scope=([^,]+), name=SSTablesPerRead><>99thPercentile'
+    name: cassandra_table_sstables_per_read_p99
+    labels:
+      keyspace: "$1"
+      table: "$2"
+    type: GAUGE
+
+  - pattern: 'org.apache.cassandra.metrics<type=Table, keyspace=([^,]+), scope=([^,]+), name=ReadLatency><>99thPercentile'
+    name: cassandra_table_read_latency_p99_ms
+    labels:
+      keyspace: "$1"
+      table: "$2"
+    valueFactor: 0.001
+    type: GAUGE
+
+  - pattern: 'org.apache.cassandra.metrics<type=Table, keyspace=([^,]+), scope=([^,]+), name=WriteLatency><>99thPercentile'
+    name: cassandra_table_write_latency_p99_ms
+    labels:
+      keyspace: "$1"
+      table: "$2"
+    valueFactor: 0.001
+    type: GAUGE
+
+  - pattern: 'org.apache.cassandra.metrics<type=Table, keyspace=([^,]+), scope=([^,]+), name=TotalDiskSpaceUsed><>Count'
+    name: cassandra_table_disk_space_used_bytes
+    labels:
+      keyspace: "$1"
+      table: "$2"
+    type: GAUGE
+
+  # === THREAD POOLS ===
+
+  - pattern: 'org.apache.cassandra.metrics<type=ThreadPools,.*><>.*'
+    name: cassandra_threadpool_fallback
+    type: UNTYPED
+ 
+  - pattern: 'org.apache.cassandra.metrics<type=ThreadPools, path=([^,]+), threadpools=([^,]+), name=([^,]+)><>Value'
+    name: cassandra_threadpool_$3
+    labels:
+      pool_group: "$1"
+      pool_name: "$2"
+    type: GAUGE
+
+  - pattern: 'org.apache.cassandra.metrics<type=ThreadPools, path=([^,]+), threadpools=([^,]+), name=([^,]+)><>Count'
+    name: cassandra_threadpool_$3_total
+    labels:
+      pool_group: "$1"
+      pool_name: "$2"
+    type: COUNTER
+  # Authentication Metrics
+  - pattern: 'org.apache.cassandra.metrics<type=ThreadPools, path=internal, scope=Authentication, name=(Active|Completed)><>Value'
+    name: cassandra_threadpool_authentication_$1
+    type: GAUGE
+    labels:
+      pool_type: "authentication"
+
+  - pattern: 'org.apache.cassandra.metrics<type=ThreadPools, path=(\S+), threadPool=(\S+), name=(Active|Completed)><>Value'
+    name: cassandra_threadpool_$2_$3
+    type: GAUGE
+    labels:
+      path: "$1"
+
+  
+  # Authorization Metrics
+  - pattern: 'org.apache.cassandra.metrics<type=ThreadPools, path=internal, scope=Auth-zStage, name=(Active|Completed)><>Value'
+    name: cassandra_threadpool_authorization_$1
+    type: GAUGE
+    labels:
+      pool_type: "authorization"
+
+  # Network Backpressure
+  - pattern: 'org.apache.cassandra.metrics<type=ThreadPools, path=network, scope=Backpressure, name=Active><>Value'
+    name: cassandra_network_backpressure_active
+    type: GAUGE
+
+
+
+  # === COMPACTION ===
+  - pattern: 'org.apache.cassandra.metrics<type=Compaction, name=PendingTasks><>Value'
+    name: cassandra_compaction_pending_tasks
+    type: GAUGE
+
+  # === STORAGE ===
+  - pattern: 'org.apache.cassandra.metrics<type=Storage, name=TotalDiskSpaceUsed><>Count'
+    name: cassandra_storage_total_disk_space_used_bytes
+    type: GAUGE
+
+  # === HINTS ===
+  - pattern: 'org.apache.cassandra.metrics<type=Storage, name=TotalHints><>Count'
+    name: cassandra_hints_pending_total
+
+
+  # MISC
+  - pattern: 'org.apache.cassandra.metrics<type=Client, name=connectedNativeClients><>Value'
+    name: cassandra_client_connected_native_clients
+    type: GAUGE
+  
+ 
+
+  

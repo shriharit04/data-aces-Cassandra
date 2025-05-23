@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: 'cassandra-provisioned'
+    orgId: 1
+    folder: 'cassandra'
+    type: file
+    options:
+      path: /etc/grafana/provisioning/dashboards/cassandra-provisioned.json
+      updateIntervalSeconds: 10
+      allowUiUpdates: true
