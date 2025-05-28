@@ -13,11 +13,7 @@ services:
       - ./grafana/provisioning:/etc/grafana/provisioning
       
       - grafana-storage:/var/lib/grafana
-  
-  
-  
-  
-  
+    
   cassandra:
     build: ./cassandra
     container_name: cassandra
@@ -44,8 +40,22 @@ services:
       - ./prometheus:/etc/prometheus
       - prom_data:/prometheus
 
+  sonarqube:
+    image: sonarqube:lts
+    container_name: sonarqube
+    ports:
+      - "9000:9000"
+    environment:
+      - SONAR_ES_BOOTSTRAP_CHECKS_DISABLE=true
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_logs:/opt/sonarqube/logs
+      - sonarqube_extensions:/opt/sonarqube/extensions
 
 volumes:
+  sonarqube_data:
+  sonarqube_logs:
+  sonarqube_extensions:
   grafana-storage: {}
   prom_data:
   cassandra_data:
