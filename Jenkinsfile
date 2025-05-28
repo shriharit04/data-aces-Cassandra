@@ -1,6 +1,15 @@
 pipeline {
-    agent any
+    agent {
+        docker {image 'node:20-alpine'}
+    }
     stages {
+
+        stage("test"){
+            steps{
+                sh 'node --version'
+            }
+        }
+
         stage('Clone Repo') {
             steps {
                 checkout scm
